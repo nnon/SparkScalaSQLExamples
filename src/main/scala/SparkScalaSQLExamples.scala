@@ -7,6 +7,7 @@ case class Author(name: String, age: Int)
 
 object SparkScalaSQLExamples extends App{
   val sc = new SparkContext("local", "App")
+  sc.setLogLevel("WARN")
   val sqlContext = new SQLContext(sc)
 
   val sql =
@@ -15,10 +16,12 @@ object SparkScalaSQLExamples extends App{
     """.stripMargin
 
   //implicit schema
+
   val books = sc.parallelize(List(Author("Dickens",200),
     Author("Leckie",45),
     Author("Stoker",300)))
   import sqlContext.implicits._
+
   val booksDf = books.toDF("name", "totalBooks")
   booksDf.printSchema()
   booksDf.show()
@@ -26,12 +29,13 @@ object SparkScalaSQLExamples extends App{
   val classAuthors = sqlContext.sql(sql + "ClassAuthors")
   classAuthors.show()
 
+
   //explicit schema
   val booksTuple: RDD[Row] = sc.parallelize(List(("Dickens",30),
-    ("Leckie",3),
-    ("Stoker",10),
-    ("Shakey",3),
-    ("Smith",10)))
+    ("Ann Leckie",3),
+    ("Bram Stoker",10),
+    ("Shakey Stevens",3),
+    ("John Smith",10)))
   .map { case(name, count) => Row(name, count)}
   val schema = StructType(List(
     StructField("name", StringType, false),
@@ -53,6 +57,19 @@ object SparkScalaSQLExamples extends App{
       |     authors a
       |on ca.name = a.name
     """.stripMargin)
-  join.show
+  join.show()
+
+
+  //val joinFiltered = join.select("name").where("totalBooks = 45")
+  //joinFiltered.show()
+
+  //UDF
+  def initials(args: String) = {
+    args.split(" ").map(_.substring(0,1)).mkString("")
+  }
+  sqlContext.udf.register("initials", (s: String) => initials(s))
+  sqlContext.sql("select name, initials(name) as initials from authors").show()
+  //df.select("name",initials("name")).show()
+
 
 }
